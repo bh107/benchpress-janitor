@@ -203,7 +203,7 @@ def main(args):
   
     logging.basicConfig(
         filename="janitor.log",
-        format="[%(filename)s:%(lineno)s %(funcName)17s ] %(message)s",
+        format="[%(asctime)s %(filename)s:%(lineno)s %(funcName)17s ] %(message)s",
         level=logging.DEBUG
     )
 
