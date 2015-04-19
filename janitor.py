@@ -3,11 +3,37 @@ import subprocess
 import argparse
 import logging
 import pprint
+import json
 import glob
 import sys
 import os
 
-ignore = ['empty']
+class Config(object):
+
+    def __init__(self, workdir, repos_path):
+        self.paths = {
+            "repos": repos_path,
+            "work": workdir,
+            "watch": os.sep.join([workdir, "watch"]),
+            "done": os.sep.join([workdir, "done"]),
+            "run": os.sep.join([workdir, "running"]),
+        }
+
+        (suitesdir, suites) = find_suites()
+
+        self.paths["suites"] = suitesdir
+        self.suites = suites
+
+        for path in self.paths:
+            setattr(self, "%s_%s" % (path, "dir"), self.paths[path])
+
+    def __str__(self):
+        rep = "\n".join([
+            "PATHS: %s" % pprint.pformat(self.paths),
+            "SUITES: %s" % pprint.pformat(self.suites)
+        ])
+        
+        return rep 
 
 def find_suites():
     """
@@ -47,44 +73,16 @@ def expand_path(path):
 
     return expanded
 
-def listdir(path):
+def listdir(path, ignore=["empty"]):
     """
     Return a list of files in the given path.
-    Ignores filenames in the global "ingore".
+    Ignores filenames in the "ignore".
     """
     
     for entry in glob.glob(os.sep.join([path, "*"])):
         filename = os.path.basename(entry)
         if filename not in ignore:
             yield entry
-
-class Config(object):
-
-    def __init__(self, workdir, repos_path):
-        self.paths = {
-            "repos": repos_path,
-            "work": workdir,
-            "watch": os.sep.join([workdir, "watch"]),
-            "done": os.sep.join([workdir, "done"]),
-            "run": os.sep.join([workdir, "running"]),
-            "process": os.sep.join([workdir, "processing"]),
-        }
-
-        (suitesdir, suites) = find_suites()
-
-        self.paths["suites"] = suitesdir
-        self.suites = suites
-
-        for path in self.paths:
-            setattr(self, "%s_%s" % (path, "dir"), self.paths[path])
-
-    def __str__(self):
-        rep = "\n".join([
-            "PATHS: %s" % pprint.pformat(self.paths),
-            "SUITES: %s" % pprint.pformat(self.suites)
-        ])
-        
-        return rep 
 
 def bprun(conf, suite_path, result_path):
     """
@@ -113,7 +111,7 @@ def bprun(conf, suite_path, result_path):
 
     return (out, err)
 
-def check_watchfolder(conf):
+def check_watching(conf):
     """
     Check if there is anything in the watch-folder and
     start new benchpress runs if there is anything there.
@@ -143,6 +141,35 @@ def check_watchfolder(conf):
             result_path = os.sep.join([conf.run_dir, "%s.json" % result_fn])
             out, err = bprun(conf, suite_path, result_path)
 
+def check_running(conf):
+    """
+    Check running jobs.
+    """
+
+    for rfile in listdir(conf.run_dir):
+        result_path = os.path.abspath(rfile)    # Get the result path
+        result_fn = os.path.basename(result_path)
+        logging.info("Found %s" % result_path)
+                                                # Get the suitename
+        suite_abspath = json.load(open(result_path))["meta"]["suite"]
+        suite_fn = os.path.basename(suite_abspath)
+        suitename = os.path.splitext(suite_fn)[0]
+        logging.info("It uses suite(%s)" % suitename)
+
+        suite_path = conf.suites[suitename]     # Get the suite_path
+
+        out, err = bprun(                       # Do the run
+            conf,
+            suite_path,
+            result_path
+        )
+
+        if "Benchmark all finished" in out:     # Check the status
+            logging.info("Run is done...")
+            done_path = os.sep.join([conf.done_dir, result_fn])
+            logging.info("done_path(%s)" % done_path)
+            os.rename(result_path, done_path)# Move out of running
+
 def main(args):
   
     logging.basicConfig(
@@ -154,10 +181,13 @@ def main(args):
     repos_path = expand_path(args.repos)
 
     conf = Config(workdir, repos_path)
-    if args.task == "watch":
-        check_watchfolder(conf)
-    else:
-        pass
+    TASKS[args.task](conf)
+
+TASKS = {
+    "watch":    check_watching,
+    "run":      check_running
+    "process":  check_process
+}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -178,7 +208,7 @@ if __name__ == "__main__":
         'task',
         type=str,
         help="What do you want to do.",
-        choices=["watch", "running"]
+        choices=[task for task in TASKS]
     )
     args = parser.parse_args()
     main(args)
