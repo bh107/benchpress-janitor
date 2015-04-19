@@ -107,7 +107,7 @@ def bprun(conf, suite_path, result_path):
     )
     out, err = p.communicate()
     if err:
-        logging.error(err)
+        logging.error("The command threw up the following error: [%s]" % err)
 
     return (out, err)
 
@@ -131,7 +131,7 @@ def check_watching(conf):
 
         os.remove(wfile)                    # Remove the watch-file
         logging.info("Removing %s" % wfile)
-
+        
         if not postfixes:                   # Set one if none is found
             postfixes.append("01")
 
@@ -139,6 +139,13 @@ def check_watching(conf):
             suite_path = conf.suites[suitename]
             result_fn = "%s_%s" % (suitename, postfix)
             result_path = os.sep.join([conf.run_dir, "%s.json" % result_fn])
+
+            if os.path.exists(result_path):
+                logging.error(
+                    "Skipping(%s), since it is already running." % result_fn
+                )
+                continue
+
             out, err = bprun(conf, suite_path, result_path)
 
 def check_running(conf):
@@ -186,7 +193,6 @@ def main(args):
 TASKS = {
     "watch":    check_watching,
     "run":      check_running
-    "process":  check_process
 }
 
 if __name__ == "__main__":
