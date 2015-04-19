@@ -2,7 +2,9 @@
 import subprocess
 import argparse
 import logging
+import random
 import pprint
+import string
 import json
 import glob
 import sys
@@ -34,6 +36,11 @@ class Config(object):
         ])
         
         return rep 
+
+def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    """Credit: http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python"""
+
+    return ''.join(random.choice(chars) for _ in range(size))
 
 def find_suites():
     """
@@ -137,7 +144,7 @@ def check_watching(conf):
 
         for postfix in postfixes:           # Start bp-run for each
             suite_path = conf.suites[suitename]
-            result_fn = "%s_%s" % (suitename, postfix)
+            result_fn = "%s-%s" % (suitename, postfix)
             result_path = os.sep.join([conf.run_dir, "%s.json" % result_fn])
 
             if os.path.exists(result_path):
@@ -175,6 +182,16 @@ def check_running(conf):
             logging.info("Run is done...")
             done_path = os.sep.join([conf.done_dir, result_fn])
             logging.info("done_path(%s)" % done_path)
+            if os.path.exists(done_path):
+                logging.info("Conflict, changing done_path.")
+                postfix = id_generator()
+                done_path = ".".join([
+                    os.path.splitext(done_path)[0],
+                    postfix,
+                    "json"
+                ])
+                logging.info("Changed to: %s" % done_path)
+                
             os.rename(result_path, done_path)# Move out of running
 
 def main(args):
