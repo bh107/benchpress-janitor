@@ -9,4 +9,6 @@ Then do a `crontab -e` along the lines of::
   # Ask the janitor to do a watch & run
   */30 * * * 1 source $HOME/.bash_profile; cd $HOME/perftest && ./check.sh
 
+  # Last line cannot be empty!?
+
 Then it should start rolling in those numbers...
