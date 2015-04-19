@@ -194,9 +194,15 @@ def check_running(conf):
                 
             os.rename(result_path, done_path)# Move out of running
 
+TASKS = {
+    "watch":    check_watching,
+    "run":      check_running
+}
+
 def main(args):
   
     logging.basicConfig(
+        filename="janitor.log",
         format="[%(filename)s:%(lineno)s %(funcName)17s ] %(message)s",
         level=logging.DEBUG
     )
@@ -206,11 +212,6 @@ def main(args):
 
     conf = Config(workdir, repos_path)
     TASKS[args.task](conf)
-
-TASKS = {
-    "watch":    check_watching,
-    "run":      check_running
-}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
