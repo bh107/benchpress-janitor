@@ -179,9 +179,8 @@ def check_running(conf):
         )
 
         if "Benchmark all finished" in out:     # Check the status
-            logging.info("Run is done...")
+            logging.info("Run(%s) is done..." % result_fn)
             done_path = os.sep.join([conf.done_dir, result_fn])
-            logging.info("done_path(%s)" % done_path)
             if os.path.exists(done_path):
                 logging.info("Conflict, changing done_path.")
                 postfix = id_generator()

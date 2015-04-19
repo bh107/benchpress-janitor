@@ -1,9 +1,12 @@
+Modify ``config.sh`` and ``daily.sh`` to suite needs / system.
+Then do a `crontab -e` along the lines of::
 
-Do a `crontab -e` along the lines of::
-
-  # Push suites into the janitors watch-folder
-  0 4 * * 1 cd /home/safl/perftest && ./daily_job.sh
+  SHELL=/bin/bash
   
-  # Ask the janitor to do a watch & run
-  */15 * * * 1 cd /home/safl/perftest && ./check.sh
+  # Push suites into the janitors watch-folder
+  0 4 * * 1 source $HOME/.bash_profile; cd /home/safl/perftest && ./daily.sh
 
+  # Ask the janitor to do a watch & run
+  */30 * * * 1 source $HOME/.bash_profile; cd $HOME/perftest && ./check.sh
+
+Then it should start rolling in those numbers...
