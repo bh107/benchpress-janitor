@@ -4,10 +4,10 @@ Then do a `crontab -e` along the lines of::
   SHELL=/bin/bash
   
   # Push suites into the janitors watch-folder
-  0 4 * * 1 source $HOME/.bash_profile; cd $HOME/perftest && ./daily.sh
-
+  55 3 * * * source $HOME/.bash_profile; cd $HOME/perftest && ./daily_job.sh
+  
   # Ask the janitor to do a watch & run
-  */30 * * * 1 source $HOME/.bash_profile; cd $HOME/perftest && ./check.sh
+  */30 * * * * source $HOME/.bash_profile; cd $HOME/perftest && ./check.sh
 
   # Last line cannot be empty!?
 
