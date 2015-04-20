@@ -210,7 +210,9 @@ def main(args):
     repos_path = expand_path(args.repos)
 
     conf = Config(workdir, repos_path)
+    logging.info("Started working on task '%s'" % args.task)
     TASKS[args.task](conf)
+    logging.info("Stopped working on task '%s'" % args.task)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
