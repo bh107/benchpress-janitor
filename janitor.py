@@ -19,6 +19,7 @@ class Config(object):
             "watch": os.sep.join([workdir, "watch"]),
             "done": os.sep.join([workdir, "done"]),
             "run": os.sep.join([workdir, "running"]),
+            "graph": os.sep.join([workdir, "graphing"]),
         }
 
         (suitesdir, suites) = find_suites()
@@ -118,6 +119,128 @@ def bprun(conf, suite_path, result_path):
 
     return (out, err)
 
+def bpgrapher(conf, grapher, result_path, output_path):
+    """
+    Execute the bp-grapher command for the given result-file and output-file.
+    """
+
+    result_fn = os.path.basename(result_path)
+    result_id = os.path.splitext(result_fn)[0]
+
+    logging.info("Apply '%s' to '%s'" % (grapher, result_id))
+
+    cmd = [
+        "bp-grapher",
+        result_path,
+        "--type",
+        grapher,
+        "--output",
+        output_path
+    ]
+    cmd_str = " ".join(cmd)
+    logging.info("Running: `%s`" % cmd_str)
+
+    return
+
+    p = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    out, err = p.communicate()
+    if err:
+        logging.error("The command threw up the following error: [%s]" % err)
+
+    return (out, err)
+
+def move_rfile(conf, result_path, dest):
+    """
+    Takes the absolute path to a result file (/foo/bar/something.json),
+    and moves it "done" or "graph"
+
+    returns the full destination path.
+    """
+    if dest not in conf.paths:
+        raise Exception("Invalid destination %s" % dest)
+
+    result_fn = os.path.basename(result_path)
+    dest_path = os.sep.join([conf.paths[dest], result_fn])
+    if os.path.exists(dest_path):
+        logging.info("Conflict, changing dest_path.")
+        postfix = id_generator()
+        dest_path = ".".join([
+            os.path.splitext(dest_path)[0],
+            postfix,
+            "json"
+        ])
+        logging.info("Changed to: %s" % dest_path)
+    
+    logging.info("mv %s -> %s" % (result_path, dest_path))
+    os.rename(result_path, dest_path)   # Move out of running
+
+    return dest_path
+
+def move_rdir(conf, rdir, dest):
+    """
+    Takes the absolute path to a result file (/foo/bar/something.json),
+    and moves it "done" or "graph"
+
+    returns the full destination path.
+    """
+    if dest not in conf.paths:
+        raise Exception("Invalid destination %s" % dest)
+
+    result_dn = os.path.basename(rdir)
+    dest_path = os.sep.join([conf.paths[dest], result_dn])
+    logging.info("result_dn %s" % result_dn)
+    if os.path.exists(dest_path):
+        logging.info("Conflict, changing dest_path.")
+        postfix = id_generator()
+        dest_path = ".".join([
+            dest_path,
+            postfix
+        ])
+        logging.info("Changed to: %s" % dest_path)
+    
+    logging.info("mv %s -> %s" % (rdir, dest_path))
+    #os.rename(rdir, dest_path)   # Move out of running
+    sys.exit(0)
+
+    return dest_path
+
+def touch(file_path):
+    logging.info(file_path)
+    open(file_path, 'wa').close()
+
+def move_container(conf, container_path, dest):
+    """Move the container around..."""
+
+    (container_id, suitename, suite_path, result_path) = get_container_info(
+        conf, container_path
+    )
+    
+    logging.info("Move(%s) -> %s" % (container_id, dest))
+    pass 
+
+def make_container(conf, container_id, suitename):
+    """
+    Create a container for the suite in the 'running' dir.
+    Returns None on failure and the abspath to the container on success.
+    """
+    
+    container_path = os.sep.join([conf.run_dir, container_id])
+    if os.path.exists(container_path):
+        logging.info("Container(%s) exists, skipping." % container_id)
+        return None
+
+    logging.info("Creating container(%s)" % container_path)
+    os.mkdir(container_path)
+
+    suitename_path = os.sep.join([container_path, "%s.suitename" % suitename])
+    touch(suitename_path)
+
+    return container_path
+
 def check_watching(conf):
     """
     Check if there is anything in the watch-folder and
@@ -143,59 +266,96 @@ def check_watching(conf):
             postfixes.append("01")
 
         for postfix in postfixes:           # Start bp-run for each
-            suite_path = conf.suites[suitename]
-            result_fn = "%s-%s" % (suitename, postfix)
-            result_path = os.sep.join([conf.run_dir, "%s.json" % result_fn])
+            #suite_path = conf.suites[suitename]
+            container_id = "%s-%s" % (suitename, postfix)
+            container_path = make_container(conf, container_id, suitename)
+            #result_fn = "%s-%s" % (suitename, postfix)
+            #result_path = os.sep.join([conf.run_dir, "%s.json" % result_fn])
+            #
+            #if os.path.exists(result_path):
+            #    logging.error(
+            #        "Skipping(%s), since it is already running." % result_fn
+            #    )
+            #    continue
+            #
+            #out, err = bprun(conf, suite_path, result_path)
 
-            if os.path.exists(result_path):
-                logging.error(
-                    "Skipping(%s), since it is already running." % result_fn
-                )
-                continue
+def get_container_info(conf, container_path):
+    """Returns info about the container."""
 
-            out, err = bprun(conf, suite_path, result_path)
+    container_id = os.path.basename(container_path)             # Get the container_id
+
+    suitename = None                                            # Get the suitename
+    for i, filename in enumerate(glob.glob(os.sep.join([container_path, "*.suitename"]))):
+        suitename = os.path.splitext(os.path.basename(filename))[0]
+        if i > 0:
+            raise Exception("Too many suite-names!")
+
+    if not suitename or suitename not in conf.suites:
+        raise Exception("Invalid suite(%s)" % suitename)
+    
+    suite_path = conf.suites[suitename]                         # Get the suite_path
+    result_path = os.sep.join([container_path, "result.json"])  # Get the result_path
+
+    logging.info("container_id(%s), suitename(%s), container_path(%s), result_path(%s)" % (
+        container_id, suitename, container_path, result_path
+    ))
+
+    return (container_id, suitename, suite_path, result_path)
 
 def check_running(conf):
     """
     Check running jobs.
+
+    When finished move to "graph" if use_grapher is defined othervise
+    move to "done.
     """
 
-    for rfile in listdir(conf.run_dir):
-        result_path = os.path.abspath(rfile)    # Get the result path
-        result_fn = os.path.basename(result_path)
-        logging.info("Found %s" % result_path)
-                                                # Get the suitename
-        suite_abspath = json.load(open(result_path))["meta"]["suite"]
-        suite_fn = os.path.basename(suite_abspath)
-        suitename = os.path.splitext(suite_fn)[0]
-        logging.info("It uses suite(%s)" % suitename)
+    for container_path in listdir(conf.run_dir):
 
-        suite_path = conf.suites[suitename]     # Get the suite_path
-
-        out, err = bprun(                       # Do the run
-            conf,
-            suite_path,
-            result_path
+        (container_id, suitename, suite_path, result_path) = get_container_info(
+            conf, container_path
         )
 
-        if "Benchmark all finished" in out:     # Check the status
-            logging.info("Run(%s) is done..." % result_fn)
-            done_path = os.sep.join([conf.done_dir, result_fn])
-            if os.path.exists(done_path):
-                logging.info("Conflict, changing done_path.")
-                postfix = id_generator()
-                done_path = ".".join([
-                    os.path.splitext(done_path)[0],
-                    postfix,
-                    "json"
-                ])
-                logging.info("Changed to: %s" % done_path)
-                
-            os.rename(result_path, done_path)# Move out of running
+        out, err = bprun(conf, suite_path, result_path) # Do the run
+
+        if "Benchmark all finished" in out:             # Check the status
+            logging.info("Run(%s) has finished." % container_id)
+
+            result = json.load(open(result_path))       # Open the result-file
+            use_grapher = None                          # Check if uses a grapher
+            if "use_grapher" in result["meta"]:
+                use_grapher = result["meta"]["use_grapher"]
+
+            destination = "done"                        # What to do next?
+            if use_grapher:                             # Gen graph or done.
+                destination = "graph"
+
+            move_container(conf, container_path, destination)
+
+def check_graphing(conf):
+    """
+    Check if there is anything waiting to get graphed...
+    """
+    for rfile in listdir(conf.graph_dir):
+        result_path = os.path.abspath(rfile)
+        result_fn = os.path.basename(result_path)
+        result_id = os.path.splitext(result_fn)[0]
+
+        logging.info("Found '%s'..." % result_fn)
+        graph_path = os.sep.join([conf.graph_dir, result_id])
+        try:
+            os.mkdir(graph_path)
+        except OSError as e:
+            logging.info("Graph-dir already exist?")
+        bpgrapher(conf, "cpu", result_path, graph_path) # Graphing...
+
+        move_rdir(conf, graph_path, 'done')
 
 TASKS = {
     "watch":    check_watching,
-    "run":      check_running
+    "run":      check_running,
+    "graph":    check_graphing
 }
 
 def main(args):
@@ -210,9 +370,9 @@ def main(args):
     repos_path = expand_path(args.repos)
 
     conf = Config(workdir, repos_path)
-    logging.info("Started working on task '%s'" % args.task)
+    logging.info("========= +++ '%s' +++ =========" % args.task)
     TASKS[args.task](conf)
-    logging.info("Stopped working on task '%s'" % args.task)
+    logging.info("========= ... '%s' ... =========" % args.task)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
