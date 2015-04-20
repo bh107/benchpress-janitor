@@ -10,33 +10,9 @@ import glob
 import sys
 import os
 
-class Config(object):
-
-    def __init__(self, workdir, repos_path):
-        self.paths = {
-            "repos": repos_path,
-            "work": workdir,
-            "watch": os.sep.join([workdir, "watch"]),
-            "done": os.sep.join([workdir, "done"]),
-            "run": os.sep.join([workdir, "running"]),
-            "graph": os.sep.join([workdir, "graphing"]),
-        }
-
-        (suitesdir, suites) = find_suites()
-
-        self.paths["suites"] = suitesdir
-        self.suites = suites
-
-        for path in self.paths:
-            setattr(self, "%s_%s" % (path, "dir"), self.paths[path])
-
-    def __str__(self):
-        rep = "\n".join([
-            "PATHS: %s" % pprint.pformat(self.paths),
-            "SUITES: %s" % pprint.pformat(self.suites)
-        ])
-        
-        return rep 
+def touch(file_path):
+    logging.info(file_path)
+    open(file_path, 'wa').close()
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     """Credit: http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python"""
@@ -92,6 +68,34 @@ def listdir(path, ignore=["empty"]):
         if filename not in ignore:
             yield entry
 
+class Config(object):
+
+    def __init__(self, workdir, repos_path):
+        self.paths = {
+            "repos": repos_path,
+            "work": workdir,
+            "watch": os.sep.join([workdir, "watch"]),
+            "done": os.sep.join([workdir, "done"]),
+            "run": os.sep.join([workdir, "running"]),
+            "graph": os.sep.join([workdir, "graphing"]),
+        }
+
+        (suitesdir, suites) = find_suites()
+
+        self.paths["suites"] = suitesdir
+        self.suites = suites
+
+        for path in self.paths:
+            setattr(self, "%s_%s" % (path, "dir"), self.paths[path])
+
+    def __str__(self):
+        rep = "\n".join([
+            "PATHS: %s" % pprint.pformat(self.paths),
+            "SUITES: %s" % pprint.pformat(self.suites)
+        ])
+        
+        return rep 
+
 def bprun(conf, suite_path, result_path):
     """
     Execute the bp-run command for the given suite and output-postfix.
@@ -139,9 +143,7 @@ def bpgrapher(conf, grapher, result_path, output_path):
     ]
     cmd_str = " ".join(cmd)
     logging.info("Running: `%s`" % cmd_str)
-
-    return
-
+    
     p = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
@@ -153,74 +155,33 @@ def bpgrapher(conf, grapher, result_path, output_path):
 
     return (out, err)
 
-def move_rfile(conf, result_path, dest):
-    """
-    Takes the absolute path to a result file (/foo/bar/something.json),
-    and moves it "done" or "graph"
-
-    returns the full destination path.
-    """
-    if dest not in conf.paths:
-        raise Exception("Invalid destination %s" % dest)
-
-    result_fn = os.path.basename(result_path)
-    dest_path = os.sep.join([conf.paths[dest], result_fn])
-    if os.path.exists(dest_path):
-        logging.info("Conflict, changing dest_path.")
-        postfix = id_generator()
-        dest_path = ".".join([
-            os.path.splitext(dest_path)[0],
-            postfix,
-            "json"
-        ])
-        logging.info("Changed to: %s" % dest_path)
-    
-    logging.info("mv %s -> %s" % (result_path, dest_path))
-    os.rename(result_path, dest_path)   # Move out of running
-
-    return dest_path
-
-def move_rdir(conf, rdir, dest):
-    """
-    Takes the absolute path to a result file (/foo/bar/something.json),
-    and moves it "done" or "graph"
-
-    returns the full destination path.
-    """
-    if dest not in conf.paths:
-        raise Exception("Invalid destination %s" % dest)
-
-    result_dn = os.path.basename(rdir)
-    dest_path = os.sep.join([conf.paths[dest], result_dn])
-    logging.info("result_dn %s" % result_dn)
-    if os.path.exists(dest_path):
-        logging.info("Conflict, changing dest_path.")
-        postfix = id_generator()
-        dest_path = ".".join([
-            dest_path,
-            postfix
-        ])
-        logging.info("Changed to: %s" % dest_path)
-    
-    logging.info("mv %s -> %s" % (rdir, dest_path))
-    #os.rename(rdir, dest_path)   # Move out of running
-    sys.exit(0)
-
-    return dest_path
-
-def touch(file_path):
-    logging.info(file_path)
-    open(file_path, 'wa').close()
-
 def move_container(conf, container_path, dest):
-    """Move the container around..."""
+    """
+    Move the container around...
+    Returns the abspath where it is moved to.
+    """
 
     (container_id, suitename, suite_path, result_path) = get_container_info(
         conf, container_path
     )
     
-    logging.info("Move(%s) -> %s" % (container_id, dest))
-    pass 
+    logging.info("Move(%s) -> %s" % (container_id, dest))   # Check destination
+    if dest not in conf.paths:
+        raise Exception("Invalid destination %s" % dest)
+
+    dest_path = os.sep.join([conf.paths[dest], container_id])
+    if os.path.exists(dest_path):                           # Check for conflict
+        logging.info("Conflict, changing container_id / dest_path.")
+        postfix = id_generator()
+        dest_path = ".".join([
+            dest_path,
+            postfix
+        ])
+    
+    logging.info("mv %s -> %s" % (container_path, dest_path))
+    os.rename(container_path, dest_path)                    # Move it
+
+    return dest_path
 
 def make_container(conf, container_id, suitename):
     """
@@ -240,6 +201,29 @@ def make_container(conf, container_id, suitename):
     touch(suitename_path)
 
     return container_path
+
+def get_container_info(conf, container_path):
+    """Returns info about the container."""
+
+    container_id = os.path.basename(container_path)             # Get the container_id
+
+    suitename = None                                            # Get the suitename
+    for i, filename in enumerate(glob.glob(os.sep.join([container_path, "*.suitename"]))):
+        suitename = os.path.splitext(os.path.basename(filename))[0]
+        if i > 0:
+            raise Exception("Too many suite-names!")
+
+    if not suitename or suitename not in conf.suites:
+        raise Exception("Invalid suite(%s)" % suitename)
+    
+    suite_path = conf.suites[suitename]                         # Get the suite_path
+    result_path = os.sep.join([container_path, "result.json"])  # Get the result_path
+
+    logging.info("container_id(%s), suitename(%s), container_path(%s), result_path(%s)" % (
+        container_id, suitename, container_path, result_path
+    ))
+
+    return (container_id, suitename, suite_path, result_path)
 
 def check_watching(conf):
     """
@@ -266,42 +250,8 @@ def check_watching(conf):
             postfixes.append("01")
 
         for postfix in postfixes:           # Start bp-run for each
-            #suite_path = conf.suites[suitename]
             container_id = "%s-%s" % (suitename, postfix)
             container_path = make_container(conf, container_id, suitename)
-            #result_fn = "%s-%s" % (suitename, postfix)
-            #result_path = os.sep.join([conf.run_dir, "%s.json" % result_fn])
-            #
-            #if os.path.exists(result_path):
-            #    logging.error(
-            #        "Skipping(%s), since it is already running." % result_fn
-            #    )
-            #    continue
-            #
-            #out, err = bprun(conf, suite_path, result_path)
-
-def get_container_info(conf, container_path):
-    """Returns info about the container."""
-
-    container_id = os.path.basename(container_path)             # Get the container_id
-
-    suitename = None                                            # Get the suitename
-    for i, filename in enumerate(glob.glob(os.sep.join([container_path, "*.suitename"]))):
-        suitename = os.path.splitext(os.path.basename(filename))[0]
-        if i > 0:
-            raise Exception("Too many suite-names!")
-
-    if not suitename or suitename not in conf.suites:
-        raise Exception("Invalid suite(%s)" % suitename)
-    
-    suite_path = conf.suites[suitename]                         # Get the suite_path
-    result_path = os.sep.join([container_path, "result.json"])  # Get the result_path
-
-    logging.info("container_id(%s), suitename(%s), container_path(%s), result_path(%s)" % (
-        container_id, suitename, container_path, result_path
-    ))
-
-    return (container_id, suitename, suite_path, result_path)
 
 def check_running(conf):
     """
@@ -337,20 +287,31 @@ def check_graphing(conf):
     """
     Check if there is anything waiting to get graphed...
     """
-    for rfile in listdir(conf.graph_dir):
-        result_path = os.path.abspath(rfile)
-        result_fn = os.path.basename(result_path)
-        result_id = os.path.splitext(result_fn)[0]
+    for container_path in listdir(conf.graph_dir):
 
-        logging.info("Found '%s'..." % result_fn)
-        graph_path = os.sep.join([conf.graph_dir, result_id])
+        (container_id, suitename, suite_path, result_path) = get_container_info(
+            conf, container_path
+        )
+
+        graph_path = os.sep.join([container_path, "graphs"])
+        result = json.load(open(result_path))       # Open the result-file
+        use_grapher = None                          # Check if uses a grapher
+        if "use_grapher" in result["meta"]:
+            use_grapher = result["meta"]["use_grapher"]
+        logging.info("use_grapher(%s), graph_path(%s)" % (use_grapher, graph_path))
+
+        if not use_grapher:
+            raise Exception("Cannot find the grapher...")
+
         try:
             os.mkdir(graph_path)
         except OSError as e:
             logging.info("Graph-dir already exist?")
-        bpgrapher(conf, "cpu", result_path, graph_path) # Graphing...
 
-        move_rdir(conf, graph_path, 'done')
+        out, err = bpgrapher(conf, "cpu", result_path, graph_path) # Graphing...
+        logging.info("bpgrapher said: out(%s), err(%s)" % (out, err))
+
+        move_container(conf, container_path, "done")
 
 TASKS = {
     "watch":    check_watching,
@@ -387,7 +348,7 @@ if __name__ == "__main__":
     parser.add_argument(
         'repos',
         type=str,
-        help="Path to the Bohrium repos."
+        help="Path to a REPOS, the revision is included in the result."
     )
     parser.add_argument(
         'task',
