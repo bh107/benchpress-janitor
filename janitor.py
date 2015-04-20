@@ -96,7 +96,7 @@ class Config(object):
         
         return rep 
 
-def bprun(conf, suite_path, result_path):
+def bprun(conf, cwd, suite_path, result_path):
     """
     Execute the bp-run command for the given suite and output-postfix.
     """
@@ -107,7 +107,6 @@ def bprun(conf, suite_path, result_path):
         suite_path,
         "--output",
         result_path
-        
     ]
     cmd_str = " ".join(cmd)
     logging.info("Running: `%s`" % cmd_str)
@@ -115,7 +114,8 @@ def bprun(conf, suite_path, result_path):
     p = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        cwd=cwd
     )
     out, err = p.communicate()
     if err:
@@ -123,7 +123,7 @@ def bprun(conf, suite_path, result_path):
 
     return (out, err)
 
-def bpgrapher(conf, grapher, result_path, output_path):
+def bpgrapher(conf, cwd, grapher, result_path, output_path):
     """
     Execute the bp-grapher command for the given result-file and output-file.
     """
@@ -147,7 +147,8 @@ def bpgrapher(conf, grapher, result_path, output_path):
     p = subprocess.Popen(
         cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
+        cwd=cwd
     )
     out, err = p.communicate()
     if err:
@@ -267,7 +268,7 @@ def check_running(conf):
             conf, container_path
         )
 
-        out, err = bprun(conf, suite_path, result_path) # Do the run
+        out, err = bprun(conf, container_path, suite_path, result_path) # RUN!
 
         if "Benchmark all finished" in out:             # Check the status
             logging.info("Run(%s) has finished." % container_id)
@@ -308,7 +309,7 @@ def check_graphing(conf):
         except OSError as e:
             logging.info("Graph-dir already exist?")
 
-        out, err = bpgrapher(conf, "cpu", result_path, graph_path) # Graphing...
+        out, err = bpgrapher(conf, graph_path, "cpu", result_path, graph_path) # Graphing...
         logging.info("bpgrapher said: out(%s), err(%s)" % (out, err))
 
         move_container(conf, container_path, "done")
