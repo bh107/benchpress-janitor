@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 BH_REPOS=~/bohrium
-PT_REPOS=~/perftest
+PT_REPOS=~/benchpress-janitor
