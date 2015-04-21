@@ -316,23 +316,24 @@ def check_postprocessing(conf):
         times_path = os.sep.join([container_path, "times.txt"]) # Dump times
         bptimes(conf, container_path, result_path, times_path)
 
-        graph_path = os.sep.join([container_path, "graphs"])    # Dump graphs
-        result = json.load(open(result_path))       # Open the result-file
-        use_grapher = None                          # Check if uses a grapher
+        result = json.load(open(result_path))                   # Dump graphs
         if "use_grapher" in result["meta"]:
             use_grapher = result["meta"]["use_grapher"]
-        logging.info("use_grapher(%s), graph_path(%s)" % (use_grapher, graph_path))
+            if use_grapher:
+                graph_path = os.sep.join([container_path, "graphs"])
+                logging.info("use_grapher(%s), graph_path(%s)" % (
+                    use_grapher, graph_path
+                ))
 
-        if not use_grapher:
-            raise Exception("Cannot find the grapher...")
+                try:
+                    os.mkdir(graph_path)
+                except OSError as e:
+                    logging.info("Graph-dir already exist?")
 
-        try:
-            os.mkdir(graph_path)
-        except OSError as e:
-            logging.info("Graph-dir already exist?")
-
-        out, err = bpgrapher(conf, graph_path, "cpu", result_path, graph_path) # Graphing...
-        logging.info("bpgrapher said: out(%s), err(%s)" % (out, err))
+                out, err = bpgrapher(                           # Graphing...
+                    conf, graph_path, "cpu", result_path, graph_path
+                ) 
+                logging.info("bpgrapher said: out(%s), err(%s)" % (out, err))
 
         move_container(conf, container_path, "done")
 
