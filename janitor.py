@@ -156,6 +156,36 @@ def bpgrapher(conf, cwd, grapher, result_path, output_path):
 
     return (out, err)
 
+def archive_container(conf, container_path):
+    """Tars the given path and puts the archive inside."""
+
+    (container_id, suitename, suite_path, result_path) = get_container_info(
+        conf, container_path
+    )
+
+    archive_fn = "archive.tar.gz"
+
+    logging.info("Tar-ing %s and dumping %s inside" % (container_path, archive_fn))
+    
+    cmd = [
+        "tar",
+        "-czf",
+        archive_fn,
+        "*"
+    ]
+    cmd_txt = " ".join(cmd)
+    logging.info("With this command: %s" % cmd_txt)
+    p = subprocess.Popen(
+        cmd_txt,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=container_path,
+        shell=True
+    )
+    out, err = p.communicate()
+    if out or err:
+        logging.info("tar said this: out(%s) err(%s)" % (out, err))
+
 def bptimes(conf, cwd, result_path, output_path):
     """
     Execute the bp-times command for the given result-file and output-file.
@@ -306,7 +336,13 @@ def check_running(conf):
 
 def check_postprocessing(conf):
     """
-    Check if there is anything waiting to get graphed...
+    Check if there is anything waiting to get processed, then:
+
+        * run bp-times
+        * run bp-grapher (when applicable)
+        * create tar-archive
+        * move into "done"
+
     """
     for container_path in listdir(conf.postprocess_dir):
 
@@ -335,7 +371,9 @@ def check_postprocessing(conf):
                 ) 
                 logging.info("bpgrapher said: out(%s), err(%s)" % (out, err))
 
-        move_container(conf, container_path, "done")
+        
+        archive_container(conf, container_path)     # Create container-archive
+        move_container(conf, container_path, "done")# Move it all into done!
 
 TASKS = {
     "watch": check_watching,
