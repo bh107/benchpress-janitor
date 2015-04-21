@@ -77,7 +77,7 @@ class Config(object):
             "watch": os.sep.join([workdir, "watch"]),
             "done": os.sep.join([workdir, "done"]),
             "run": os.sep.join([workdir, "running"]),
-            "graph": os.sep.join([workdir, "graphing"]),
+            "postprocess": os.sep.join([workdir, "postprocessing"]),
         }
 
         (suitesdir, suites) = find_suites()
@@ -153,6 +153,36 @@ def bpgrapher(conf, cwd, grapher, result_path, output_path):
     out, err = p.communicate()
     if err:
         logging.error("The command threw up the following error: [%s]" % err)
+
+    return (out, err)
+
+def bptimes(conf, cwd, result_path, output_path):
+    """
+    Execute the bp-times command for the given result-file and output-file.
+    """
+
+    result_fn = os.path.basename(result_path)
+    result_id = os.path.splitext(result_fn)[0]
+
+    logging.info("Getting times for '%s'" % result_id)
+
+    cmd = [                                     # Construct command
+        "bp-times",
+        result_path,
+    ]
+    cmd_str = " ".join(cmd)
+    logging.info("Running: `%s`" % cmd_str)
+
+    with(open(output_path, 'w')) as output_fd:  # Open the output file..
+        p = subprocess.Popen(                   # ..pipe results into it.
+            cmd,
+            stdout=output_fd,
+            stderr=subprocess.PIPE,
+            cwd=cwd
+        )
+        out, err = p.communicate()
+        if err:
+            logging.error("The command threw up the following error: [%s]" % err)
 
     return (out, err)
 
@@ -258,8 +288,7 @@ def check_running(conf):
     """
     Check running jobs.
 
-    When finished move to "graph" if use_grapher is defined othervise
-    move to "done.
+    When finished move to "postprocessing"
     """
 
     for container_path in listdir(conf.run_dir):
@@ -272,29 +301,22 @@ def check_running(conf):
 
         if "Benchmark all finished" in out:             # Check the status
             logging.info("Run(%s) has finished." % container_id)
+   
+            move_container(conf, container_path, "postprocess")
 
-            result = json.load(open(result_path))       # Open the result-file
-            use_grapher = None                          # Check if uses a grapher
-            if "use_grapher" in result["meta"]:
-                use_grapher = result["meta"]["use_grapher"]
-
-            destination = "done"                        # What to do next?
-            if use_grapher:                             # Gen graph or done.
-                destination = "graph"
-
-            move_container(conf, container_path, destination)
-
-def check_graphing(conf):
+def check_postprocessing(conf):
     """
     Check if there is anything waiting to get graphed...
     """
-    for container_path in listdir(conf.graph_dir):
+    for container_path in listdir(conf.postprocess_dir):
 
         (container_id, suitename, suite_path, result_path) = get_container_info(
             conf, container_path
         )
+        times_path = os.sep.join([container_path, "times.txt"]) # Dump times
+        bptimes(conf, container_path, result_path, times_path)
 
-        graph_path = os.sep.join([container_path, "graphs"])
+        graph_path = os.sep.join([container_path, "graphs"])    # Dump graphs
         result = json.load(open(result_path))       # Open the result-file
         use_grapher = None                          # Check if uses a grapher
         if "use_grapher" in result["meta"]:
@@ -315,9 +337,9 @@ def check_graphing(conf):
         move_container(conf, container_path, "done")
 
 TASKS = {
-    "watch":    check_watching,
-    "run":      check_running,
-    "graph":    check_graphing
+    "watch": check_watching,
+    "run": check_running,
+    "postprocess": check_postprocessing
 }
 
 def main(args):
