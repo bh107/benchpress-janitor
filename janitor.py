@@ -163,28 +163,23 @@ def archive_container(conf, container_path):
         conf, container_path
     )
 
-    archive_fn = "archive.tar.gz"
-
-    logging.info("Tar-ing %s and dumping %s inside" % (container_path, archive_fn))
-    
-    cmd = [
-        "tar",
-        "-czf",
-        archive_fn,
-        "*"
+    archive_commands = [
+        "tar -czf archive.tar.gz * --exclude=archive*",
+        "zip archive.zip * -r -x archive*"
     ]
-    cmd_txt = " ".join(cmd)
-    logging.info("With this command: %s" % cmd_txt)
-    p = subprocess.Popen(
-        cmd_txt,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=container_path,
-        shell=True
-    )
-    out, err = p.communicate()
-    if out or err:
-        logging.info("tar said this: out(%s) err(%s)" % (out, err))
+
+    for cmd in archive_commands:
+        logging.info("With this command: '%s'" % cmd)
+        p = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=container_path,
+            shell=True
+        )
+        out, err = p.communicate()
+        if out or err:
+            logging.info("archiver said out(%s) err(%s)" % (out, err))
 
 def bptimes(conf, cwd, result_path, output_path):
     """
