@@ -19,8 +19,8 @@ CONTAINERS=`ls $DONEDIR`
 for CONTAINER in $CONTAINERS
 do
     CONTAINER_PATH="$DONEDIR/$CONTAINER"
-    TAR_PATH="$CONTAINER_PATH.tar.gz"
-    TAR_NAME="$CONTAINER.tar.gz"
+    TAR_PATH="$CONTAINER_PATH.tgz"
+    TAR_NAME="$CONTAINER.tgz"
 
     # Not interested in empty, in something that has already been exported
     # or exporting exports :)

@@ -164,7 +164,7 @@ def archive_container(conf, container_path):
     )
 
     archive_commands = [
-        "tar -czf archive.tar.gz * --exclude=archive*",
+        "tar -czf archive.tgz * --exclude=archive*",
         "zip archive.zip * -r -x archive*"
     ]
 
