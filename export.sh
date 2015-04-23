@@ -35,5 +35,5 @@ do
     mv $TAR_NAME ..
     popd
     # Ship it off
-    echo "put $TAR_PATH" | sftp erda.dk:/Bohrium/safl/incoming/
+    echo "put $TAR_PATH" | sftp $SFTP_HOST:$SFTP_TARGET
 done;

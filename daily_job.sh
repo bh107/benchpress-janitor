@@ -2,7 +2,9 @@
 source config.sh
 
 DATE=`date +%Y_%m_%d`
-SUITES="perftest_mini_slurm"
+#SUITES="numpy_vs_bohrium"
+SUITES="heat_equation leibnitz_pi rosenbrock numpy_vs_bohrium" 
+#SUITES="leibnitz_pi heat_equation rosenbrock"
 
 for SUITE in $SUITES
 do
