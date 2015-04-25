@@ -105,6 +105,8 @@ def bprun(conf, cwd, suite_path, result_path):
         "bp-run",
         conf.repos_dir,
         suite_path,
+        "--runs",
+        "5",
         "--output",
         result_path
     ]
@@ -302,12 +304,12 @@ def check_watching(conf):
         os.remove(wfile)                    # Remove the watch-file
         logging.info("Removing %s" % wfile)
         
-        if not postfixes:                   # Set one if none is found
-            postfixes.append("01")
-
-        for postfix in postfixes:           # Start bp-run for each
-            container_id = "%s-%s" % (suitename, postfix)
-            container_path = make_container(conf, container_id, suitename)
+        if postfixes:                       # Set one if none is found
+            for postfix in postfixes:       # Start bp-run for each
+                container_id = "%s-%s" % (suitename, postfix)
+                container_path = make_container(conf, container_id, suitename)
+        else:
+            container_path = make_container(conf, suitename, suitename)
 
 def check_running(conf):
     """

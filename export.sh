@@ -28,7 +28,7 @@ do
     then
         continue
     fi;
-
+    echo "** Exporting $TAR_NAME" >> $PT_REPOS/janitor.log
     # Create the archive
     pushd $CONTAINER_PATH
     tar czf $TAR_NAME *
