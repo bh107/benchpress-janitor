@@ -10,7 +10,8 @@ SUITES="engine heat_equation numpy_vs_bohrium"
 for SUITE in $SUITES
 do
     echo "** Adding ${SUITE} to watch" >> $PT_REPOS/janitor.log
-    touch $PT_REPOS/workdir/watch/$SUITE-$DATE
+    touch $PT_REPOS/workdir/watch/$SUITE
+    echo "${DATE}" >> $PT_REPOS/workdir/watch/$SUITE
     #echo "01" >> $PT_REPOS/workdir/watch/$SUITE
     #echo "02" >> $PT_REPOS/workdir/watch/$SUITE
 done
